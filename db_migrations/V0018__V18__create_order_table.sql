@@ -1,0 +1,21 @@
+CREATE TABLE "order" (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_number        TEXT NOT NULL UNIQUE,
+  company_id          UUID NOT NULL REFERENCES company(id),
+  product_id          UUID REFERENCES product(id),
+  quantity            INTEGER NOT NULL DEFAULT 1,
+  unit_price          NUMERIC(14,2) NOT NULL DEFAULT 0,
+  delivery_cost       NUMERIC(14,2) NOT NULL DEFAULT 0,
+  total_amount        NUMERIC(14,2) NOT NULL DEFAULT 0,
+  invoice_id          UUID REFERENCES invoice(id),
+  delivery_id         UUID REFERENCES delivery(id),
+  payment_status      payment_status_enum NOT NULL DEFAULT 'unpaid',
+  fulfillment_scheme  fulfillment_scheme_enum NOT NULL DEFAULT 'rfbs_standard',
+  rfbs_subtype        TEXT,
+  order_status        order_status_enum NOT NULL DEFAULT 'new',
+  cancel_reason       TEXT,
+  operational_day     DATE NOT NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  confirmed_at        TIMESTAMPTZ,
+  archived_at         TIMESTAMPTZ
+);
