@@ -1,0 +1,26 @@
+{
+  "tests": [
+    {
+      "name": "Lookup by valid INN",
+      "method": "GET",
+      "path": "/?inn=7707049388",
+      "expectedStatus": 200,
+      "expectedBody": {"inn": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Invalid INN format",
+      "method": "GET",
+      "path": "/?inn=123",
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}

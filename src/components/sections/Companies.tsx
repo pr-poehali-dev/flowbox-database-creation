@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 
 const COMPANIES = [
@@ -24,6 +25,7 @@ const PLAN_COLORS: Record<string, string> = {
 
 export default function Companies() {
   const [search, setSearch] = useState("");
+  const navigate = useNavigate();
   const filtered = COMPANIES.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.inn.includes(search));
 
   return (
@@ -33,10 +35,12 @@ export default function Companies() {
           <h1 className="text-xl font-semibold text-foreground">Клиентские компании</h1>
           <p className="text-xs text-muted-foreground mt-0.5">{COMPANIES.length} компаний · {COMPANIES.filter(c => c.status === "Активна").length} активных</p>
         </div>
-        <button className="flex items-center gap-2 text-xs px-3 py-1.5 rounded text-foreground hover:opacity-90 transition-opacity font-medium"
+        <button
+          onClick={() => navigate("/onboarding")}
+          className="flex items-center gap-2 text-xs px-3 py-1.5 rounded text-foreground hover:opacity-90 transition-opacity font-medium"
           style={{ background: "hsl(var(--cyan))", color: "hsl(var(--primary-foreground))" }}>
           <Icon name="Plus" size={13} />
-          Добавить компанию
+          Зарегистрировать клиента
         </button>
       </div>
 

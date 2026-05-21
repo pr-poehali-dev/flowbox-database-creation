@@ -1,0 +1,24 @@
+{
+  "tests": [
+    {
+      "name": "Missing company_id",
+      "method": "POST",
+      "path": "/",
+      "body": {},
+      "expectedStatus": 400
+    },
+    {
+      "name": "Non-existent company",
+      "method": "POST",
+      "path": "/",
+      "body": {"company_id": "00000000-0000-0000-0000-000000000000"},
+      "expectedStatus": 404
+    },
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
