@@ -1,0 +1,3 @@
+ALTER TABLE product
+  ADD COLUMN stock_available INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN stock_reserved INTEGER NOT NULL DEFAULT 0;
