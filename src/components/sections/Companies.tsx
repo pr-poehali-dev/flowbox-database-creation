@@ -110,9 +110,19 @@ export default function Companies() {
                   <td className="px-5 py-3 font-mono text-xs text-foreground text-right">{c.orders}</td>
                   <td className="px-5 py-3 text-xs text-muted-foreground">{c.manager}</td>
                   <td className="px-5 py-3">
-                    <button className="text-muted-foreground hover:text-foreground transition-colors">
-                      <Icon name="MoreHorizontal" size={14} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => navigate(`/client?company_id=${c.id}`)}
+                        className="text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
+                        title="Открыть кабинет клиента"
+                      >
+                        <Icon name="ExternalLink" size={11} className="inline mr-1" />
+                        Кабинет
+                      </button>
+                      <button className="text-muted-foreground hover:text-foreground transition-colors">
+                        <Icon name="MoreHorizontal" size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );

@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "Missing company_id",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 400
+    },
+    {
+      "name": "Overview section",
+      "method": "GET",
+      "path": "/?company_id=00000000-0000-0000-0000-000000000000&section=overview",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Catalog section",
+      "method": "GET",
+      "path": "/?company_id=00000000-0000-0000-0000-000000000000&section=catalog",
+      "expectedStatus": 200
+    },
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
