@@ -1,0 +1,36 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET not allowed",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 405
+    },
+    {
+      "name": "POST empty body",
+      "method": "POST",
+      "path": "/",
+      "body": {},
+      "expectedStatus": 400
+    },
+    {
+      "name": "POST outgoing payment - skipped",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "operationId": "test-out-001",
+        "direction": "debit",
+        "counterpartyInn": "1234567890",
+        "amount": "5000.00",
+        "paymentPurpose": "Оплата услуг"
+      },
+      "expectedStatus": 200
+    }
+  ]
+}

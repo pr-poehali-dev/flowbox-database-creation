@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Check overdue UPD",
+      "method": "GET",
+      "path": "/?action=check_overdue",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Batch export - no invoices",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "batch"},
+      "expectedStatus": 200
+    }
+  ]
+}

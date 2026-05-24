@@ -1,4 +1,9 @@
 {
+  "tochka-polling": "https://functions.poehali.dev/cfd77472-16b2-4166-a9c2-fc91e9740c43",
+  "tochka-webhook": "https://functions.poehali.dev/0d7b9575-43b7-416a-a551-e8118aa4c85e",
+  "overdue-checker": "https://functions.poehali.dev/6bfbff86-898a-4d09-98ad-96ee492b41cf",
+  "export-1c": "https://functions.poehali.dev/f7e9559d-122f-44c1-b350-3b0c43700fb3",
+  "invoice-generator": "https://functions.poehali.dev/6ab4a2f0-8620-448a-9f2d-12fc4b582914",
   "price-calculator": "https://functions.poehali.dev/1be91c0d-825b-4a5f-9488-4a1833027306",
   "logist-dashboard": "https://functions.poehali.dev/a98ec74e-291f-4f3a-a72a-04666cf4eb33",
   "reset-password": "https://functions.poehali.dev/254ed7fd-dae1-4f80-b420-43ecb70c3265",

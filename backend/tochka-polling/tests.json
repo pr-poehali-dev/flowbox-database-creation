@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "POST - missing credentials",
+      "method": "POST",
+      "path": "/",
+      "body": {},
+      "expectedStatus": 503
+    }
+  ]
+}
