@@ -1,6 +1,7 @@
 import json
 import os
 import psycopg2
+# v2 — claim_action agree/dispute
 from decimal import Decimal
 
 
@@ -21,13 +22,14 @@ def handler(event: dict, context) -> dict:
     """Агрегированные данные личного кабинета клиента. company_id передаётся в query или header X-Company-Id."""
     cors = {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, X-Company-Id",
     }
 
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": cors, "body": ""}
 
+    method = event.get("httpMethod", "GET")
     params = event.get("queryStringParameters") or {}
     headers = event.get("headers") or {}
     company_id = params.get("company_id") or headers.get("x-company-id") or headers.get("X-Company-Id")

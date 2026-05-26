@@ -354,19 +354,185 @@ def handler(event: dict, context) -> dict:
             }
 
         elif section == "claim_update" and method == "POST":
+            import datetime as _dt
             cid_cl = body.get("claim_id")
             action = body.get("action")
+
+            def _add_history(status, comment=""):
+                return json.dumps([{"date": _dt.datetime.utcnow().isoformat(),
+                                     "status": status, "comment": comment}])
+
             if action == "send_decision":
                 cur.execute(
-                    "UPDATE claim SET decision=%s, compensation_amount=%s, compensation_type=%s, status='decision_made' WHERE id=%s",
-                    (body.get("decision"), body.get("compensation_amount", 0), body.get("compensation_type"), cid_cl)
+                    """UPDATE claim SET decision=%s, compensation_amount=%s,
+                          compensation_type=%s, status='decision_made',
+                          history = history || %s::jsonb
+                       WHERE id=%s""",
+                    (body.get("decision"),
+                     body.get("compensation_amount", 0),
+                     body.get("compensation_type"),
+                     _add_history("decision_made", "Решение отправлено клиенту"),
+                     cid_cl)
+                )
+                # Уведомить клиента
+                cur.execute("SELECT company_id FROM claim WHERE id=%s", (cid_cl,))
+                cid_row = cur.fetchone()
+                if cid_row:
+                    cur.execute('SELECT id FROM "user" WHERE company_id=%s AND archived_at IS NULL', (str(cid_row[0]),))
+                    for u in cur.fetchall():
+                        cur.execute(
+                            "INSERT INTO notification (user_id, event_type, channel, text, link_type, link_id) VALUES (%s,'claim_resolved','in_app',%s,'claim',%s)",
+                            (str(u[0]), "По вашей рекламации вынесено решение. Проверьте и подтвердите.", cid_cl),
+                        )
+            elif action == "reviewing":
+                cur.execute(
+                    "UPDATE claim SET status='reviewing', history=history||%s::jsonb WHERE id=%s",
+                    (_add_history("reviewing", "Рекламация принята в работу"), cid_cl)
                 )
             elif action == "procedural":
-                cur.execute("UPDATE claim SET status='procedural' WHERE id=%s", (cid_cl,))
+                cur.execute(
+                    "UPDATE claim SET status='procedural', history=history||%s::jsonb WHERE id=%s",
+                    (_add_history("procedural", "Переведена в процессуальный статус"), cid_cl)
+                )
             elif action == "close":
-                cur.execute("UPDATE claim SET status='closed', closed_at=NOW() WHERE id=%s", (cid_cl,))
+                cur.execute(
+                    "UPDATE claim SET status='closed', closed_at=NOW(), history=history||%s::jsonb WHERE id=%s",
+                    (_add_history("closed", "Закрыта менеджером"), cid_cl)
+                )
             conn.commit()
             result["ok"] = True
+
+        elif section == "claim_create" and method == "POST":
+            # Ручное создание рекламации менеджером
+            import datetime as _dt
+            cur.execute("SELECT COUNT(*) FROM claim")
+            n = cur.fetchone()[0] + 1
+            claim_number = f"CLM-MAN-{str(n).zfill(6)}"
+            cur.execute(
+                """INSERT INTO claim
+                   (claim_number, company_id, order_id, product_id,
+                    type, source, description, status, history)
+                   VALUES (%s,%s,%s,%s,%s,'manual',%s,'new',%s)
+                   RETURNING id""",
+                (
+                    claim_number,
+                    body.get("company_id"),
+                    body.get("order_id") or None,
+                    body.get("product_id") or None,
+                    body.get("type", "defect"),
+                    body.get("description", ""),
+                    json.dumps([{"date": _dt.datetime.utcnow().isoformat(),
+                                  "status": "new", "comment": "Создана менеджером вручную"}]),
+                )
+            )
+            result["claim_id"] = str(cur.fetchone()[0])
+            result["claim_number"] = claim_number
+            conn.commit()
+            result["ok"] = True
+
+        elif section == "claim_photos" and method == "POST":
+            # Сохранение URL фотографий (загруженных через S3) в рекламацию
+            cid_cl = body.get("claim_id")
+            photos = body.get("photos", [])
+            if not cid_cl or not photos:
+                cur.close(); conn.close()
+                return {"statusCode": 400, "headers": cors, "body": json.dumps({"error": "claim_id и photos обязательны"}, ensure_ascii=False)}
+            cur.execute(
+                """UPDATE claim SET photos = COALESCE(photos, '[]'::jsonb) || %s::jsonb WHERE id=%s""",
+                (json.dumps(photos), cid_cl)
+            )
+            conn.commit()
+            result["ok"] = True
+
+        elif section == "warehouse_items":
+            # Список физических товаров на складе (возвраты)
+            cid_f = params.get("company_id", "")
+            st_f  = params.get("stock_status", "in_warehouse")
+            where = ["1=1"]
+            args  = []
+            if cid_f:
+                where.append("c.id=%s"); args.append(cid_f)
+            if st_f:
+                where.append("wi.stock_status=%s"); args.append(st_f)
+            cur.execute(
+                f"""SELECT wi.id, p.trade_name, p.supplier_article, wi.quantity,
+                           wi.condition, wi.stock_status, wi.received_at,
+                           cl.claim_number, co.name as company_name
+                    FROM warehouse_item wi
+                    JOIN product p ON p.id=wi.product_id
+                    LEFT JOIN claim cl ON cl.id=wi.claim_id
+                    LEFT JOIN "order" o ON o.id=cl.order_id
+                    LEFT JOIN company co ON co.id=cl.company_id
+                    WHERE {' AND '.join(where)}
+                    ORDER BY wi.received_at DESC LIMIT 50""",
+                args,
+            )
+            result["items"] = [
+                {"id": str(r[0]), "trade_name": r[1], "supplier_article": r[2],
+                 "quantity": r[3], "condition": r[4], "stock_status": r[5],
+                 "received_at": r[6].isoformat() if r[6] else None,
+                 "claim_number": r[7], "company_name": r[8]}
+                for r in cur.fetchall()
+            ]
+
+        elif section == "warehouse_item_action" and method == "POST":
+            # Менеджер принимает решение по физическому товару
+            import datetime as _dt
+            item_id = body.get("item_id")
+            action  = body.get("action")  # return_to_sale | return_to_supplier | write_off
+            if action == "return_to_sale":
+                cur.execute(
+                    "UPDATE warehouse_item SET stock_status='ready_for_sale', resolved_at=NOW() WHERE id=%s",
+                    (item_id,)
+                )
+                cur.execute(
+                    "UPDATE product SET stock_status='ready_for_sale' WHERE id=(SELECT product_id FROM warehouse_item WHERE id=%s)",
+                    (item_id,)
+                )
+            elif action == "return_to_supplier":
+                cur.execute(
+                    "UPDATE warehouse_item SET stock_status='ready_for_return', resolved_at=NOW() WHERE id=%s",
+                    (item_id,)
+                )
+                # Создать задание логисту
+                cur.execute("SELECT product_id, claim_id FROM warehouse_item WHERE id=%s", (item_id,))
+                wi = cur.fetchone()
+                if wi:
+                    cur.execute(
+                        "INSERT INTO delivery (type, delivery_method, status, task_date, claim_id) VALUES ('return_to_supplier','our_delivery','new',CURRENT_DATE+1,%s) RETURNING id",
+                        (str(wi[1]) if wi[1] else None,)
+                    )
+            elif action == "write_off":
+                cur.execute(
+                    "UPDATE warehouse_item SET stock_status='written_off', resolved_at=NOW() WHERE id=%s",
+                    (item_id,)
+                )
+                cur.execute(
+                    "UPDATE product SET stock_status='written_off' WHERE id=(SELECT product_id FROM warehouse_item WHERE id=%s)",
+                    (item_id,)
+                )
+            conn.commit()
+            result["ok"] = True
+
+        elif section == "priority_stock_check":
+            # Проверить наличие товара ready_for_sale для нового заказа
+            product_id = params.get("product_id") or body.get("product_id")
+            cur.execute(
+                """SELECT wi.id, wi.quantity, p.trade_name
+                   FROM warehouse_item wi
+                   JOIN product p ON p.id=wi.product_id
+                   WHERE wi.product_id=%s AND wi.stock_status='ready_for_sale'
+                   LIMIT 1""",
+                (product_id,)
+            )
+            row = cur.fetchone()
+            if row:
+                result["has_warehouse_stock"] = True
+                result["item_id"]   = str(row[0])
+                result["quantity"]  = row[1]
+                result["trade_name"]= row[2]
+            else:
+                result["has_warehouse_stock"] = False
 
         elif section == "suppliers":
             cur.execute(

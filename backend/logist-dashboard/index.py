@@ -233,22 +233,37 @@ def handler(event: dict, context) -> dict:
                 )
                 order_row = cur.fetchone()
                 if order_row:
-                    claim_number = f"CLM-AUTO-{did[:8].upper()}"
+                    claim_number = f"CLM-REF-{did[:8].upper()}"
                     cur.execute(
                         """INSERT INTO claim
                            (claim_number, company_id, order_id, product_id, type, source,
-                            description, status)
-                           VALUES (%s, %s, %s, %s, 'delivery_refusal', 'manual',
-                                   %s, 'new')
-                           ON CONFLICT DO NOTHING""",
+                            description, reject_reason, status)
+                           VALUES (%s, %s, %s, %s, 'delivery_refusal', 'ozon_api',
+                                   %s, %s, 'new')
+                           ON CONFLICT DO NOTHING
+                           RETURNING id""",
                         (
                             claim_number,
                             str(order_row[1]),
                             str(order_row[0]),
                             str(order_row[2]) if order_row[2] else None,
                             f"Отказ при доставке. Причина: {reject_reason}",
+                            reject_reason,
                         ),
                     )
+                    inserted = cur.fetchone()
+                    claim_id = str(inserted[0]) if inserted else None
+                    # Уведомить менеджера компании
+                    cur.execute("SELECT manager_id FROM company WHERE id = %s", (str(order_row[1]),))
+                    mgr = cur.fetchone()
+                    if mgr and mgr[0]:
+                        cur.execute(
+                            """INSERT INTO notification (user_id, event_type, channel, text, link_type, link_id)
+                               VALUES (%s, 'new_claim', 'in_app', %s, 'claim', %s)""",
+                            (str(mgr[0]),
+                             f"Отказ от доставки. Причина: {reject_reason or '—'}",
+                             claim_id),
+                        )
 
             conn.commit()
             result["ok"] = True

@@ -167,15 +167,25 @@ def _poll_returns(cur, conn, company_id, client_id, api_key):
                 order_id   = str(order_row[0])
                 product_id = str(order_row[1]) if order_row[1] else None
 
+        # Определяем тип рекламации по данным Ozon
+        # is_opened_by_buyer=False или статус cancelled → отказ при получении
+        is_opened = ret.get("is_opened_by_buyer", True)
+        ret_status = ret.get("status", "")
+        if not is_opened or ret_status in ("cancelled_by_client", "returned_before_delivery"):
+            claim_type = "delivery_refusal"
+        else:
+            claim_type = "return"
+
         # Создаём claim
         cur.execute(
             """INSERT INTO claim
                (claim_number, company_id, order_id, product_id,
                 type, source, description, status)
-               VALUES (%s, %s, %s, %s, 'return', 'ozon_api', %s, 'new')""",
+               VALUES (%s, %s, %s, %s, %s, 'ozon_api', %s, 'new')""",
             (
                 claim_number, company_id, order_id, product_id,
-                f"Возврат rFBS {posting_number}. Причина: {reason}",
+                claim_type,
+                f"{'Отказ от получения' if claim_type == 'delivery_refusal' else 'Возврат'} rFBS {posting_number}. Причина: {reason}",
             )
         )
 
